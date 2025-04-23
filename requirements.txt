@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pytesseract
+python-multipart
+feedparser
+aiofiles
+python-jose
+bcrypt
+sqlmodel
+httpx
