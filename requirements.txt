@@ -13,3 +13,4 @@ slowapi
 sqlalchemy
 psycopg2-binary
 passlib[bcrypt]
+pydantic[email]
