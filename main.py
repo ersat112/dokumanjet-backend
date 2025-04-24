@@ -99,7 +99,9 @@ app.include_router(weather.router, prefix="/api/v1/weather", tags=["Weather"])
 app.include_router(ocr.router, prefix="/api/v1/ocr", tags=["OCR"])
 
 # Ana giriş
+from fastapi import Request
+
 @app.get("/")
 @limiter.limit("10/minute")
-def root():
+def root(request: Request):
     return {"message": "DokumanJet API v5.1 Aktif"}
