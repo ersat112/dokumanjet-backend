@@ -4,37 +4,49 @@ from datetime import datetime
 
 # === Authentication ===
 class UserCreate(BaseModel):
-email: EmailStr
-password: str
+    email: EmailStr
+    password: str
 
 class UserLogin(BaseModel):
-email: EmailStr
-password: str
+    email: EmailStr
+    password: str
 
 class Token(BaseModel):
-access_token: str
-token_type: str
+    access_token: str
+    token_type: str
 
 # === Arama ===
 class SearchResult(BaseModel):
-id: int
-title: str
-content: str
-score: float
+    id: int
+    title: str
+    content: str
+    score: float
 
 # === Favoriler ===
 class FavoriteCreate(BaseModel):
-keyword: str
+    keyword: str
 
 class FavoriteOut(BaseModel):
-id: int
-keyword: str
-user_email: EmailStr
+    id: int
+    keyword: str
+    user_email: EmailStr
 
 # === Haberler ===
 class NewsItem(BaseModel):
-title: str
-link: str
-summary: str
-published: datetime
-source: str
+    title: str
+    link: str
+    summary: str
+    published: datetime
+    source: str
+
+# === Hava Durumu ===
+class WeatherResponse(BaseModel):
+    city: str
+    temperature: float
+    humidity: int
+    wind_speed: float
+    description: str
+
+# === OCR ===
+class OcrResult(BaseModel):
+    text: str
