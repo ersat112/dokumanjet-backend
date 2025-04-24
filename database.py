@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # .env dosyasından veritabanı bağlantısını al
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv(postgresql://postgres:uddUTaEGipLrlRYEUQfjACqGgMHKzJds@centerbeam.proxy.rlwy.net:27209/railway)
 
 # SQLAlchemy bağlantısı
 engine = create_engine(DATABASE_URL)
