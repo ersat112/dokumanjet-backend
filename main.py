@@ -48,24 +48,24 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 from fastapi.openapi.utils import get_openapi
 def custom_openapi():
-if app.openapi_schema:
-return app.openapi_schema
-openapi_schema = get_openapi(
-title="DokumanJet API",
-version="5.1",
-description="Yapay zekâ destekli belge arama platformu",
-routes=app.routes,
-)
-openapi_schema["components"]["securitySchemes"] = {
-"BearerAuth": {
-"type": "http",
-"scheme": "bearer",
-"bearerFormat": "JWT"
-}
+    if app.openapi_schema:
+        return app.openapi_schema
+  openapi_schema = get_openapi(
+      title="DokumanJet API",
+      version="5.1",
+      description="Yapay zekâ destekli belge arama platformu",
+      routes=app.routes,
+  )
+  openapi_schema["components"]["securitySchemes"] = {
+    "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+    }
 }
 for path in openapi_schema["paths"].values():
-for method in path.values():
-method["security"] = [{"BearerAuth": []}]
+    for method in path.values():
+        method["security"] = [{"BearerAuth": []}]
 app.openapi_schema = openapi_schema
 return app.openapi_schema
 app.openapi = custom_openapi
