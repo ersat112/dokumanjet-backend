@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from database import Base
 
-# 1. önce User tablosu
+# 1. User tablosu (önce bu oluşmalı)
 class User(Base):
     __tablename__ = "users"
 
@@ -9,7 +9,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
 
-# 2. sonra Favorite tablosu (user_email foreign key olarak bağlı)
+# 2. Favorite tablosu (foreign key burada)
 class Favorite(Base):
     __tablename__ = "favorites"
 
