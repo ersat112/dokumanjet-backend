@@ -1,8 +1,8 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
+from datetime import datetime
 
-# === Authentication Modelleri ===
-
+# === Authentication ===
 class UserCreate(BaseModel):
 email: EmailStr
 password: str
@@ -15,18 +15,14 @@ class Token(BaseModel):
 access_token: str
 token_type: str
 
-
-# === Arama Sonucu ===
-
+# === Arama ===
 class SearchResult(BaseModel):
 id: int
 title: str
 content: str
 score: float
 
-
-# === Favori Arama ===
-
+# === Favoriler ===
 class FavoriteCreate(BaseModel):
 keyword: str
 
@@ -34,3 +30,11 @@ class FavoriteOut(BaseModel):
 id: int
 keyword: str
 user_email: EmailStr
+
+# === Haberler ===
+class NewsItem(BaseModel):
+title: str
+link: str
+summary: str
+published: datetime
+source: str
