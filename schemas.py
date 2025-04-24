@@ -47,6 +47,6 @@ class WeatherResponse(BaseModel):
     wind_speed: float
     description: str
 
-# === OCR ===
+# === OCR Sonucu ===
 class OcrResult(BaseModel):
     text: str
