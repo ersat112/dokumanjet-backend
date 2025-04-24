@@ -10,3 +10,6 @@ sqlmodel
 httpx
 python-dotenv
 slowapi
+sqlalchemy
+psycopg2-binary
+passlib[bcrypt]
