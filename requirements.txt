@@ -8,3 +8,5 @@ python-jose
 bcrypt
 sqlmodel
 httpx
+python-dotenv
+slowapi
