@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI, Request, Depends
+from routers import weather
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -12,6 +13,7 @@ from slowapi.errors import RateLimitExceeded
 import logging
 from database import engine
 from models import Base
+from routers.weather import router as weather_router
 
 load_dotenv()
 
