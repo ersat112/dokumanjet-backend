@@ -1,52 +1,88 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List, Dict
 from datetime import datetime
 
-# === Authentication ===
-class UserCreate(BaseModel):
+# === Authentication Schemas ===
+class UserBase(BaseModel):
     email: EmailStr
-    password: str
 
-class UserLogin(BaseModel):
-    email: EmailStr
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=8, description="Kullanıcı şifresi, en az 8 karakter.")
+
+class UserLogin(UserBase):
     password: str
 
 class Token(BaseModel):
     access_token: str
-    token_type: str
+    token_type: str = "bearer"
 
-# === Arama ===
-class SearchResult(BaseModel):
+class UserOut(UserBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+# === Search Schemas ===
+class SearchItem(BaseModel):
     id: int
     title: str
-    content: str
+    snippet: str = Field(..., alias="content")
+    url: Optional[str] = None
     score: float
 
-# === Favoriler ===
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+
+class SearchResponse(BaseModel):
+    results: List[SearchItem]
+
+# === Favorites Schemas ===
 class FavoriteCreate(BaseModel):
-    keyword: str
+    keyword: str = Field(..., description="Favori arama anahtar kelimesi.")
 
 class FavoriteOut(BaseModel):
     id: int
     keyword: str
-    user_email: EmailStr
+    created_at: datetime
+    # İlişkili kullanıcı bilgisi (opsiyonel client tarafında gösterim için)
+    user: Optional[Dict[str, str]] = None
 
-# === Haberler ===
-class NewsItem(BaseModel):
+    class Config:
+        orm_mode = True
+
+# === News Schemas ===
+class NewsArticle(BaseModel):
     title: str
-    link: str
-    summary: str
-    published: datetime
-    source: str
+    description: Optional[str]
+    url: str
+    url_to_image: Optional[str] = Field(None, alias="urlToImage")
+    published_at: Optional[datetime] = Field(None, alias="publishedAt")
+    source_name: Optional[str] = Field(None, alias="source")
 
-# === Hava Durumu ===
-class WeatherResponse(BaseModel):
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+
+class NewsResponse(BaseModel):
+    articles: List[NewsArticle]
+
+# === Weather Schemas ===
+class WeatherInfo(BaseModel):
     city: str
     temperature: float
     humidity: int
     wind_speed: float
     description: str
 
-# === OCR Sonucu ===
+    class Config:
+        orm_mode = True
+
+# === OCR Schemas ===
 class OcrResult(BaseModel):
     text: str
+
+    class Config:
+        orm_mode = True
