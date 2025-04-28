@@ -19,7 +19,7 @@ from routers.news import router as news_router
 from routers.weather import router as weather_router
 from routers.ocr import router as ocr_router
 
-from database import engine
+from database import engine, get_db
 from models import Base
 
 # Ortam değişkenlerini yükle
@@ -67,7 +67,6 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Swagger için JWT token header
-
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -138,8 +137,10 @@ app.include_router(
     tags=["OCR"],
 )
 
-# Ana giriş
-dependencies = [Depends(limiter.limit("10/minute"))]
-@app.get("/", dependencies=dependencies)
+# Ana giriş endpoint’i
+@app.get(
+    "/",
+    dependencies=[Depends(limiter.limit("10/minute"))]
+)
 async def root():
     return {"message": "DokumanJet API v5.1 Aktif"}
