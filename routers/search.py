@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Query
-from typing import List
+from typing import Dict, List
 from schemas import SearchResult
 import math
 
-router = APIRouter()
+# routers/search.py
+router = APIRouter(
+    prefix="/api/search",
+    tags=["search"]
+)
 
-# Örnek belge veri kümesi (daha sonra veritabanına bağlanabilir)
+# Örnek belge veri kümesi (daha sonra veritabanına veya dış kaynağa bağlanabilir)
 documents = [
     {"id": 1, "title": "Python ile Web Geliştirme", "content": "FastAPI ve Flask kullanarak modern web uygulamaları."},
     {"id": 2, "title": "Yapay Zeka ve Makine Öğrenmesi", "content": "Veri analizi, tahminleme ve modelleme teknikleri."},
@@ -14,31 +18,40 @@ documents = [
 ]
 
 # BM25 formülü için gerekli IDF fonksiyonu
-def compute_idf(corpus, term):
+def compute_idf(corpus: List[str], term: str) -> float:
     N = len(corpus)
     df = sum(1 for doc in corpus if term in doc.lower())
     return math.log((N - df + 0.5) / (df + 0.5) + 1)
 
 # BM25 skor hesaplama
-def bm25_score(query, document, k=1.5, b=0.75):
+def bm25_score(query: str, document: str, k: float = 1.5, b: float = 0.75) -> float:
     score = 0.0
-    doc_len = len(document.split())
+    terms = query.lower().split()
+    doc_tokens = document.lower().split()
+    doc_len = len(doc_tokens)
     avg_len = sum(len(d['content'].split()) for d in documents) / len(documents)
 
-    for term in query.lower().split():
-        f = document.lower().split().count(term)
-        idf = compute_idf([d["content"] for d in documents], term)
+    for term in terms:
+        f = doc_tokens.count(term)
+        if f == 0:
+            continue
+        idf = compute_idf([d['content'] for d in documents], term)
         denom = f + k * (1 - b + b * (doc_len / avg_len))
         score += idf * ((f * (k + 1)) / (denom + 1e-10))
     return score
 
-# === Arama endpoint'i ===
-@router.get("/", response_model=List[SearchResult])
-def search_documents(q: str = Query(..., description="Aramak istediğiniz kelime")):
+@router.get("", response_model=Dict[str, List[SearchResult]])
+async def search_documents(
+    query: str = Query(..., alias="query", description="Aramak istediğiniz kelime")
+) -> Dict[str, List[SearchResult]]:
+    """
+    BM25 tabanlı arama endpoint'i: 'query' parametresine göre dokümanları tarar ve skorlanmış sonuçları döner.
+    """
     results = []
     for doc in documents:
-        score = bm25_score(q, doc["content"])
+        score = bm25_score(query, doc['content'])
         if score > 0:
-            results.append({**doc, "score": round(score, 4)})
+            results.append({**doc, 'score': round(score, 4)})
 
-    return sorted(results, key=lambda x: x["score"], reverse=True)
+    sorted_results = sorted(results, key=lambda x: x['score'], reverse=True)
+    return {"results": sorted_results}
