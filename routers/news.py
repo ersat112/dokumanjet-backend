@@ -1,57 +1,84 @@
-from fastapi import APIRouter, Query, HTTPException
-from typing import List, Optional
-from schemas import NewsItem
-import feedparser
-import requests
-from datetime import datetime
 import os
+from typing import List, Optional
+from datetime import datetime
 
-router = APIRouter()
+import feedparser
+import httpx
+from fastapi import APIRouter, Query, HTTPException, status
 
-@router.get("/", response_model=List[NewsItem])
-def get_news(
+from schemas import NewsArticle, NewsResponse
+
+# Router tanımı
+router = APIRouter(
+    prefix="/api/v1/news",
+    tags=["News"]
+)
+
+# RSS ve NewsAPI kaynak listesi
+RSS_FEEDS = [
+    os.getenv("RSS_FEED_BBC", "https://www.bbc.com/news/rss.xml"),
+    os.getenv("RSS_FEED_CNN", "https://rss.cnn.com/rss/edition.rss")
+]
+NEWSAPI_URL = os.getenv("NEWSAPI_URL", "https://newsapi.org/v2/everything")
+NEWSAPI_KEY = os.getenv("NEWS_API_KEY")
+
+@router.get("/", response_model=NewsResponse)
+async def get_news(
     q: Optional[str] = Query(None, description="Aramak istediğiniz kelime"),
-    source: Optional[str] = Query("rss", description="Haber kaynağı: 'rss' veya 'api'")
-):
-    news_items = []
+    source: Optional[str] = Query("rss", regex="^(rss|api)$", description="Kaynak: 'rss' veya 'api'"),
+    limit: int = Query(10, ge=1, le=50, description="Dönen haber sayısı")
+) -> NewsResponse:
+    """
+    Haberleri RSS veya NewsAPI üzerinden getirir. 'source' parametresi ile seçim yapabilirsiniz.
+    """
+    items: List[NewsArticle] = []
 
     if source == "rss":
-        rss_feeds = [
-            "https://www.bbc.com/news/rss.xml",
-            "https://rss.cnn.com/rss/edition.rss"
-        ]
-        for feed_url in rss_feeds:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries:
+        for feed_url in RSS_FEEDS:
+            parsed = feedparser.parse(feed_url)
+            for entry in parsed.entries[:limit]:
                 if q and q.lower() not in entry.title.lower():
                     continue
-                news_items.append(NewsItem(
+                try:
+                    published = datetime(*entry.published_parsed[:6])
+                except Exception:
+                    published = datetime.utcnow()
+                items.append(NewsArticle(
                     title=entry.title,
-                    link=entry.link,
-                    summary=entry.get("summary", ""),
-                    published=datetime(*entry.published_parsed[:6]),
-                    source=feed.feed.title
+                    url=entry.link,
+                    description=entry.get("summary", ""),
+                    url_to_image=entry.get("media_content", [{}])[0].get("url"),
+                    published_at=published,
+                    source_name=parsed.feed.get("title", "RSS")
                 ))
-
-    elif source == "api":
-        api_key = os.getenv("NEWS_API_KEY")
-        if not api_key:
-            raise HTTPException(status_code=500, detail="NEWS_API_KEY tanımlı değil.")
-        url = f"https://newsapi.org/v2/everything?q={q or 'gündem'}&apiKey={api_key}"
-        response = requests.get(url)
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="NewsAPI ile veri alınamadı.")
-        data = response.json()
+    else:
+        # API kaynağı
+        if not NEWSAPI_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="NEWS_API_KEY environment variable is not set"
+            )
+        params = {"q": q or "gündem", "apiKey": NEWSAPI_KEY, "pageSize": limit}
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(NEWSAPI_URL, params=params, timeout=10)
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="NewsAPI'den veri alınamadı."
+            )
+        data = resp.json()
         for article in data.get("articles", []):
-            news_items.append(NewsItem(
-                title=article["title"],
-                link=article["url"],
-                summary=article.get("description", ""),
-                published=datetime.strptime(article["publishedAt"], "%Y-%m-%dT%H:%M:%SZ"),
-                source=article["source"]["name"]
+            try:
+                published = datetime.fromisoformat(article.get("publishedAt", ""))
+            except Exception:
+                published = datetime.utcnow()
+            items.append(NewsArticle(
+                title=article.get("title", ""),
+                url=article.get("url", ""),
+                description=article.get("description", ""),
+                url_to_image=article.get("urlToImage"),
+                published_at=published,
+                source_name=article.get("source", {}).get("name")
             ))
 
-    else:
-        raise HTTPException(status_code=400, detail="Kaynak tipi 'rss' veya 'api' olmalıdır.")
-
-    return news_items
+    return NewsResponse(articles=items)
