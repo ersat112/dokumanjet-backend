@@ -19,13 +19,13 @@ from routers.news import router as news_router
 from routers.weather import router as weather_router
 from routers.ocr import router as ocr_router
 
-from database import engine, get_db
+from database import engine
 from models import Base
 
 # Ortam değişkenlerini yükle
 load_dotenv()
 
-# Ortam ayarları
+# Uygulama ayarları
 ENVIRONMENT = os.getenv("ENV", "production")
 ALLOWED_ORIGINS = os.getenv(
     "CORS_ORIGINS", "http://localhost,http://localhost:3000,https://dokumanjet.com"
@@ -36,7 +36,8 @@ ALLOWED_HOSTS = os.getenv(
 
 # Logger ayarları
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("dokumanjet")
 
@@ -61,19 +62,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limit
+# Rate limit ayarları
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Swagger için JWT token header
+# Swagger/OpenAPI ayarları
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
-        title="DokumanJet API",
-        version="5.1",
-        description="Yapay zekâ destekli belge arama platformu",
+        title=app.title,
+        version=app.version,
+        description=app.description,
         routes=app.routes,
     )
     openapi_schema["components"]["securitySchemes"] = {
@@ -100,44 +102,20 @@ async def generic_exception_handler(request: Request, exc: Exception):
         content={"error": "Sunucu hatası oluştu."},
     )
 
-# Sağlık kontrolü
+# Sağlık kontrolü endpoint'i
 @app.get("/health", tags=["Monitor"])
 def health_check():
     return {"status": "ok", "env": ENVIRONMENT}
 
 # Router'lar
-app.include_router(
-    auth_router,
-    prefix="/api/v1/auth",
-    tags=["Authentication"],
-)
-app.include_router(
-    search_router,
-    prefix="/api/v1/search",
-    tags=["Search"],
-)
-app.include_router(
-    favorites_router,
-    prefix="/api/v1/favorites",
-    tags=["Favorites"],
-)
-app.include_router(
-    news_router,
-    prefix="/api/v1/news",
-    tags=["News"],
-)
-app.include_router(
-    weather_router,
-    prefix="/api/v1/weather",
-    tags=["Weather"],
-)
-app.include_router(
-    ocr_router,
-    prefix="/api/v1/ocr",
-    tags=["OCR"],
-)
+app.include_router(auth_router)
+app.include_router(search_router)
+app.include_router(favorites_router)
+app.include_router(news_router)
+app.include_router(weather_router)
+app.include_router(ocr_router)
 
-# Ana giriş endpoint’i
+# Ana giriş endpoint'i
 @app.get(
     "/",
     dependencies=[Depends(limiter.limit("10/minute"))]
