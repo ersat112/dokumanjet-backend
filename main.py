@@ -1,34 +1,49 @@
 import os
+import logging
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
-from routers import auth, search, favorites, news, weather, ocr
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from fastapi.openapi.utils import get_openapi
+
+# Routers
+from routers.auth import router as auth_router
+from routers.search import router as search_router
+from routers.favorites import router as favorites_router
+from routers.news import router as news_router
+from routers.weather import router as weather_router
+from routers.ocr import router as ocr_router
+
 from database import engine
 from models import Base
-import logging
 
 # Ortam değişkenlerini yükle
 load_dotenv()
 
 # Ortam ayarları
 ENVIRONMENT = os.getenv("ENV", "production")
-ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000,https://dokumanjet.com").split(",")
-ALLOWED_HOSTS = os.getenv("TRUSTED_HOSTS", "localhost,dokumanjet.com").split(",")
+ALLOWED_ORIGINS = os.getenv(
+    "CORS_ORIGINS", "http://localhost,http://localhost:3000,https://dokumanjet.com"
+).split(",")
+ALLOWED_HOSTS = os.getenv(
+    "TRUSTED_HOSTS", "localhost,dokumanjet.com"
+).split(",")
 
 # Logger ayarları
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("dokumanjet")
 
 # FastAPI uygulaması
 app = FastAPI(
     title="DokumanJet API",
-    description="Yapay zekâ destekli belge arama motoru",
+    description="Yapay zekâ destekli belge arama platformu",
     version="5.1"
 )
 
@@ -52,7 +67,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Swagger için JWT token header
-from fastapi.openapi.utils import get_openapi
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -66,14 +81,15 @@ def custom_openapi():
         "BearerAuth": {
             "type": "http",
             "scheme": "bearer",
-            "bearerFormat": "JWT"
+            "bearerFormat": "JWT",
         }
     }
     for path in openapi_schema["paths"].values():
         for method in path.values():
-            method["security"] = [{"BearerAuth": []}]
+            method.setdefault("security", [{"BearerAuth": []}])
     app.openapi_schema = openapi_schema
     return app.openapi_schema
+
 app.openapi = custom_openapi
 
 # Global hata yönetimi
@@ -82,7 +98,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error on path {request.url.path}: {exc}")
     return JSONResponse(
         status_code=500,
-        content={"error": "Sunucu hatası oluştu."}
+        content={"error": "Sunucu hatası oluştu."},
     )
 
 # Sağlık kontrolü
@@ -91,17 +107,39 @@ def health_check():
     return {"status": "ok", "env": ENVIRONMENT}
 
 # Router'lar
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
-app.include_router(favorites.router, prefix="/api/v1/favorites", tags=["Favorites"])
-app.include_router(news.router, prefix="/api/v1/news", tags=["News"])
-app.include_router(weather.router, prefix="/api/v1/weather", tags=["Weather"])
-app.include_router(ocr.router, prefix="/api/v1/ocr", tags=["OCR"])
+app.include_router(
+    auth_router,
+    prefix="/api/v1/auth",
+    tags=["Authentication"],
+)
+app.include_router(
+    search_router,
+    prefix="/api/v1/search",
+    tags=["Search"],
+)
+app.include_router(
+    favorites_router,
+    prefix="/api/v1/favorites",
+    tags=["Favorites"],
+)
+app.include_router(
+    news_router,
+    prefix="/api/v1/news",
+    tags=["News"],
+)
+app.include_router(
+    weather_router,
+    prefix="/api/v1/weather",
+    tags=["Weather"],
+)
+app.include_router(
+    ocr_router,
+    prefix="/api/v1/ocr",
+    tags=["OCR"],
+)
 
 # Ana giriş
-from fastapi import Request
-
-@app.get("/")
-@limiter.limit("10/minute")
-def root(request: Request):
+dependencies = [Depends(limiter.limit("10/minute"))]
+@app.get("/", dependencies=dependencies)
+async def root():
     return {"message": "DokumanJet API v5.1 Aktif"}
