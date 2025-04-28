@@ -19,13 +19,14 @@ from routers.news import router as news_router
 from routers.weather import router as weather_router
 from routers.ocr import router as ocr_router
 
+# Database and Models
 from database import engine
 from models import Base
 
-# Ortam değişkenlerini yükle
+# Load environment variables
 load_dotenv()
 
-# Uygulama ayarları
+# Application settings
 ENVIRONMENT = os.getenv("ENV", "production")
 ALLOWED_ORIGINS = os.getenv(
     "CORS_ORIGINS", "http://localhost,http://localhost:3000,https://dokumanjet.com"
@@ -34,24 +35,24 @@ ALLOWED_HOSTS = os.getenv(
     "TRUSTED_HOSTS", "localhost,dokumanjet.com"
 ).split(",")
 
-# Logger ayarları
+# Logger configuration
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("dokumanjet")
 
-# FastAPI uygulaması
+# FastAPI app
 app = FastAPI(
     title="DokumanJet API",
     description="Yapay zekâ destekli belge arama platformu",
     version="5.1"
 )
 
-# Veritabanı tablolarını oluştur
+# Create tables
 Base.metadata.create_all(bind=engine)
 
-# Middleware'ler
+# Middlewares
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 app.add_middleware(
@@ -62,12 +63,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limit ayarları
+# Rate limiting
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Swagger/OpenAPI ayarları
+# Custom OpenAPI for JWT auth
 
 def custom_openapi():
     if app.openapi_schema:
@@ -93,7 +94,7 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
-# Global hata yönetimi
+# Global exception handler
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error on path {request.url.path}: {exc}")
@@ -102,12 +103,12 @@ async def generic_exception_handler(request: Request, exc: Exception):
         content={"error": "Sunucu hatası oluştu."},
     )
 
-# Sağlık kontrolü endpoint'i
+# Health check endpoint
 @app.get("/health", tags=["Monitor"])
 def health_check():
     return {"status": "ok", "env": ENVIRONMENT}
 
-# Router'lar
+# Include routers
 app.include_router(auth_router)
 app.include_router(search_router)
 app.include_router(favorites_router)
@@ -115,7 +116,7 @@ app.include_router(news_router)
 app.include_router(weather_router)
 app.include_router(ocr_router)
 
-# Ana giriş endpoint'i
+# Root endpoint with rate limit
 @app.get(
     "/",
     dependencies=[Depends(limiter.limit("10/minute"))]
