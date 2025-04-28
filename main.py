@@ -1,6 +1,6 @@
 import os
 import logging
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -19,37 +19,38 @@ from routers.news import router as news_router
 from routers.weather import router as weather_router
 from routers.ocr import router as ocr_router
 
-# Database and Models
 from database import engine
 from models import Base
 
 # Load environment variables
 load_dotenv()
 
-# Application settings
-ENVIRONMENT = os.getenv("ENV", "production")
+# Settings
+environment = os.getenv("ENV", "production")
 ALLOWED_ORIGINS = os.getenv(
-    "CORS_ORIGINS", "http://localhost,http://localhost:3000,https://dokumanjet.com"
+    "CORS_ORIGINS",
+    "http://localhost,http://localhost:3000,https://dokumanjet.com"
 ).split(",")
 ALLOWED_HOSTS = os.getenv(
-    "TRUSTED_HOSTS", "localhost,dokumanjet.com"
+    "TRUSTED_HOSTS",
+    "localhost,dokumanjet.com"
 ).split(",")
 
-# Logger configuration
+# Logger
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("dokumanjet")
 
-# FastAPI app
+# App initialization
 app = FastAPI(
     title="DokumanJet API",
     description="Yapay zekâ destekli belge arama platformu",
     version="5.1"
 )
 
-# Create tables
+# Database table creation
 Base.metadata.create_all(bind=engine)
 
 # Middlewares
@@ -63,12 +64,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rate limiting
+# Rate Limiting
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Custom OpenAPI for JWT auth
+# Custom OpenAPI for JWT authentication
 
 def custom_openapi():
     if app.openapi_schema:
@@ -83,7 +84,7 @@ def custom_openapi():
         "BearerAuth": {
             "type": "http",
             "scheme": "bearer",
-            "bearerFormat": "JWT",
+            "bearerFormat": "JWT"
         }
     }
     for path in openapi_schema["paths"].values():
@@ -100,13 +101,13 @@ async def generic_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error on path {request.url.path}: {exc}")
     return JSONResponse(
         status_code=500,
-        content={"error": "Sunucu hatası oluştu."},
+        content={"error": "Sunucu hatası oluştu."}
     )
 
 # Health check endpoint
 @app.get("/health", tags=["Monitor"])
-def health_check():
-    return {"status": "ok", "env": ENVIRONMENT}
+async def health_check():
+    return {"status": "ok", "env": environment}
 
 # Include routers
 app.include_router(auth_router)
@@ -117,9 +118,10 @@ app.include_router(weather_router)
 app.include_router(ocr_router)
 
 # Root endpoint with rate limit
-@app.get(
-    "/",
-    dependencies=[Depends(limiter.limit("10/minute"))]
-)
-async def root():
+@app.get("/")
+@limiter.limit("10/minute")
+async def root(request: Request):
+    """
+    Ana giriş endpoint'i, dakikada 10 istekle sınırlıdır.
+    """
     return {"message": "DokumanJet API v5.1 Aktif"}
